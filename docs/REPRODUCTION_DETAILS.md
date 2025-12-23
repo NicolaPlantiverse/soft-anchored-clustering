@@ -1,0 +1,205 @@
+# Soft-Anchored Clustering — Reproducibility Pack
+
+This pack provides full reproducibility for all experimental results reported in the manuscript. All statistics (means, standard deviations, relative improvements) are generated directly from run artifacts using fixed random seeds.
+
+## Installation
+
+Create a virtual environment and install dependencies:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+**Tested environments:**
+- Python 3.9, 3.10, 3.11
+- Ubuntu 22.04, macOS 13+, Windows 10+
+- Dependencies: numpy 1.23+, scipy 1.10+, scikit-learn 1.3+, pandas 2.0+
+
+## Quick Start
+
+Run experiments across multiple seeds:
+
+```bash
+python run_repro.py run \
+  --dataset synthetic \
+  --out runs/synth \
+  --K 3 --lambda_spatial 1.0 \
+  --seeds 20 --seed0 0
+```
+
+Aggregate results and produce tables:
+
+```bash
+python run_repro.py summarize --input runs/synth --out tables/synth
+```
+
+### Outputs
+
+After summarization, you will find:
+
+```
+tables/synth/
+├── summary_mean_std.csv          # Mean ± Std per method
+├── relative_improvements.csv     # Exact % improvements used in manuscript
+└── table_summary.tex             # LaTeX table skeleton
+```
+
+Each run also produces:
+- `runs/synth/run_0000.json` through `run_0019.json` (per-seed results)
+- `runs/synth/config.json` (parameters used)
+
+## Reproducing Paper Results
+
+### Table 1: ERT Dataset Main Results
+
+```bash
+python run_repro.py run \
+  --dataset ert \
+  --data_csv path/to/data.csv \
+  --anchors_csv path/to/anchors.csv \
+  --constraints_csv path/to/constraints.csv \
+  --out runs/ert \
+  --K 5 --lambda_spatial 1.0 --seeds 20
+
+python run_repro.py summarize --input runs/ert --out tables/ert
+```
+
+**Required CSV format for ERT:**
+- `data.csv`: columns `x`, `y`, `<feature1>`, `<feature2>`, ...
+- `anchors.csv`: columns `idx`, `label` (where `idx` indexes rows of `data.csv`)
+- `constraints.csv` (optional): columns `i`, `j`, `type`, `rho`
+  - `type`: "must" or "cannot"
+  - `rho`: constraint credibility in [0,1]
+
+### Table 2: Ablation Study
+
+```bash
+python run_repro.py run --dataset ert ... --ablation
+```
+
+### Anisotropic Extension
+
+```bash
+python run_repro.py run --dataset ert ... --anisotropic
+```
+
+### Synthetic Dataset
+
+```bash
+python run_repro.py run --dataset synthetic --out runs/synth --K 3 --seeds 20
+```
+
+### Negative Control (Iris)
+
+```bash
+python run_repro.py run --dataset iris --out runs/iris --K 3 --seeds 20
+```
+
+## Data Format
+
+All experiments use NumPy's `.npz` format. See `docs/DATA_FORMAT.md` for complete specification.
+
+**Quick example:**
+
+```python
+import numpy as np
+
+data = np.load("dataset.npz")
+X = data["X"]              # (n, d) feature matrix
+S = data["S"]              # (n, 2) spatial coordinates
+anchors = data["anchors"]  # (m,) anchor indices (optional)
+```
+
+**Converting CSV to NPZ:**
+
+```bash
+python scripts/csv_to_npz.py \
+  --data data.csv \
+  --coord_cols x y \
+  --feature_cols resistivity chargeability \
+  --anchors anchors.csv \
+  --out dataset.npz
+```
+
+See `scripts/csv_to_npz.py --help` for detailed options.
+
+## Diagnostic Outputs
+
+The implementation exports uncertainty quantification maps as described in Section 4.6 of the manuscript:
+
+**Credibility:**
+- `c_i` — Prior credibility (anchor proximity + local homogeneity)
+- `c_i_eff` — Effective credibility with background regularization: max(c_i, c_min)
+
+**Uncertainty:**
+- `H_i` — Entropy (Shannon entropy of local label probabilities)
+- `PAC_i` — Posterior Assignment Confidence: 1 - H_i/log(K)
+- `I_i` — Ignorance: 1 - c_i_eff
+- Conflict maps (energy decomposition)
+
+**Important note:** PAC quantifies model certainty, not empirical accuracy. It should not be interpreted as classification accuracy unless calibrated against labeled ground truth.
+
+## File Structure
+
+```
+soft-anchored-clustering/
+├── REPRODUCTION_DETAILS.md                          # This file
+├── requirements.txt                          # Python dependencies
+├── run_repro.py                             # Main experiment runner
+├── supplement_soft_anchored_repro.py        # Supplementary analyses
+│
+├── data/                                    # Example datasets (generated)
+│   ├── synthetic.csv
+│   ├── synthetic_anchors.csv
+│   ├── iris.csv
+│   └── iris_anchors.csv
+│
+├── runs/                                    # Run artifacts (generated)
+│   └── <experiment>/
+│       ├── config.json
+│       └── run_0000.json ... run_0019.json
+│
+├── tables/                                  # Aggregated results (generated)
+│   └── <experiment>/
+│       ├── summary_mean_std.csv
+│       ├── relative_improvements.csv
+│       └── table_summary.tex
+│
+├── docs/
+│   └── DATA_FORMAT.md                       # Format specification
+│
+└── scripts/
+    └── csv_to_npz.py                        # CSV conversion utility
+```
+
+## Reproducibility Statement
+
+All numerical values in the manuscript (tables, percentages, metrics) are generated by executing these scripts with fixed configurations and random seeds (R=20 runs per experiment).
+
+**No cherry-picking:** Results are not selected or filtered post-hoc. All reported statistics follow the fixed protocol documented here.
+
+**Exact replication:** Running the commands above with the same seed configuration produces identical numerical results (up to floating-point precision).
+
+## Correspondence Table
+
+| Manuscript Reference | Command | Dataset |
+|---------------------|---------|---------|
+| Table 1 (ERT results) | `run --dataset ert` | ERT (private) |
+| Table 2 (Ablations) | `run --dataset ert --ablation` | ERT (private) |
+| Anisotropic extension | `run --dataset ert --anisotropic` | ERT (private) |
+| Synthetic experiment | `run --dataset synthetic` | Generated |
+| Negative control | `run --dataset iris` | Iris (public) |
+
+All commands assume default parameters as specified in configuration files.
+
+## Support
+
+**Format questions:** See `docs/DATA_FORMAT.md`  
+**Implementation details:** Check inline documentation in `run_repro.py`  
+**Method details:** Consult the manuscript
+
+## License
+
+MIT License. See LICENSE file for details.
