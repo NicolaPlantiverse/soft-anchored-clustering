@@ -6,7 +6,7 @@ Reference implementation for the method described in:
 
 *Leonardo Giannini, Nicola Nescatelli*
 
-Submitted to *Computers & Geosciences*
+
 
 ---
 
