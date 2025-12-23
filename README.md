@@ -1,136 +1,96 @@
-Perfetto. Qui sotto trovi il README completo, già rifinito in stile riproducibilità accademica, coerente con il paper, copiabile e incollabile direttamente su GitHub, con licenza MIT esplicitata.
-Ho rispettato i vincoli che hai dato: linguaggio sobrio, tempi verbali presente/passato/condizionale, niente terminologia che non gradisci, niente promesse future, niente tono marketing.
-
-⸻
-
-
 # Soft-Anchored Clustering (reproducibility package)
 
-This repository provides a reference Python implementation and a complete reproducibility workflow for the paper:
+This repository contains a reference implementation and an end-to-end reproducibility workflow for:
 
-**Soft-Anchored Clustering under Heterogeneous Credibility:  
-A Probabilistic Framework for Spatial Data with Uncertain Constraints**
+**Soft-Anchored Clustering under Heterogeneous Credibility: A Probabilistic Framework for Spatial Data with Uncertain Constraints**
 
-The framework addresses spatial clustering problems in which:
-- observations exhibit heterogeneous reliability (credibility),
-- a subset of high-confidence points (“anchors”) is available,
+The method targets spatial datasets where:
+- observations have heterogeneous reliability (credibility),
+- a subset of high-confidence points (“anchors”) may be available,
 - spatial contiguity is desirable,
-- pairwise constraints are uncertain and are handled in a soft probabilistic manner.
-
-The repository is intended to enable independent researchers to reproduce the experimental results reported in the manuscript, subject only to numerical tolerances and hardware-dependent floating-point differences.
-
----
+- pairwise constraints may be uncertain and should be handled softly.
 
 ## Quick start
 
-### 1) Create a virtual environment
+### 1) Create an environment
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+```
 
-2) Run the reproducibility pipeline
+### 2) Run the full reproducibility suite
 
+```bash
 python run_repro.py run --out results
+```
 
-This command executes the included experiments, reproduces the reported tables as averages over repeated runs with fixed random seeds, and exports diagnostic outputs when applicable.
+This will:
+- run the included demos/synthetic experiments,
+- regenerate the tables (mean ± std across repeated seeds),
+- export diagnostic maps when applicable.
 
-⸻
+## Inputs
 
-Input data format
+Experiments use a standard **`.npz`** container with (at minimum):
 
-All experiments rely on a standardized .npz container with the following required fields:
-	•	X: array of shape (n, d) containing amplitude features
-	•	S: array of shape (n, 2) containing spatial coordinates
+- `X`: `(n, d)` feature matrix (amplitude features)
+- `S`: `(n, 2)` spatial coordinates
 
 Optional fields:
-	•	anchors: array of shape (m,) containing 0-based indices of anchor points
-	•	y_anchor: array of shape (m,) containing anchor labels
-(used only for diagnostic evaluations such as leave-one-anchor-out accuracy)
-	•	constraints: array of shape (q, 4) encoding pairwise constraints as
-(i, j, type, rho), where:
-	•	type = 1 indicates a must-link constraint,
-	•	type = 0 indicates a cannot-link constraint,
-	•	rho ∈ [0, 1] denotes the constraint credibility
-(if omitted, default values may be derived from node credibility)
+- `anchors`: `(m,)` integer indices (0-based) of anchor points
+- `y_anchor`: `(m,)` labels for anchors (optional, used only for diagnostics like LOAO when available)
+- `constraints`: `(q, 4)` constraints encoded as `(i, j, type, rho)` where:
+  - `type = 1` for must-link, `type = 0` for cannot-link
+  - `rho ∈ [0, 1]` is the constraint credibility (optional; defaults may be derived from node credibility)
 
-A full and precise specification is provided in:
+Full specification: see `docs/DATA_FORMAT.md`.
 
-docs/DATA_FORMAT.md
+### CSV to NPZ helper
 
+If you start from CSV, use:
 
-⸻
+```bash
+python scripts/csv_to_npz.py --csv your_data.csv --out your_data.npz --x-cols x1,x2,x3 --s-cols east,north
+```
 
-CSV to NPZ conversion
+See `python scripts/csv_to_npz.py --help` for options (anchors and constraints supported).
 
-A helper script is provided to convert CSV files into the required .npz format:
+## Outputs
 
-python scripts/csv_to_npz.py \
-  --csv your_data.csv \
-  --out your_data.npz \
-  --x-cols x1,x2,x3 \
-  --s-cols east,north
+Runs typically write:
+- `z`: hard cluster assignments
+- `mu, Sigma`: fitted component parameters (when using Gaussian components)
+- `c` and `c_eff`: prior credibility and effective credibility (with background floor)
+- `H`: local label entropy (ambiguity proxy)
+- `PAC`: posterior assignment confidence derived from normalized local entropy
+- `I`: ignorance map `I = 1 - c_eff` (low prior information)
 
-Additional options support anchors and constraints. See:
+Notes:
+- `PAC` is a *diagnostic certainty proxy* induced by the model’s objective under a local-conditional approximation; it is **not calibrated accuracy** unless you calibrate it against labeled data.
 
-python scripts/csv_to_npz.py --help
+## Correspondence: manuscript results ↔ commands
 
+The paper reports results as repeated runs with fixed seeds. The reference runner exposes the corresponding datasets via:
 
-⸻
-
-Outputs
-
-Typical runs generate the following outputs:
-	•	z: hard cluster assignments
-	•	mu, Sigma: fitted component parameters (for Gaussian components)
-	•	c: prior credibility field
-	•	c_eff: effective credibility with background regularization
-	•	H: local label entropy (ambiguity proxy)
-	•	PAC: posterior assignment confidence derived from normalized local entropy
-	•	I: ignorance map defined as I = 1 - c_eff
-
-Important note on interpretation
-
-PAC represents a diagnostic certainty measure induced by the model objective under a local conditional approximation. It does not represent calibrated classification accuracy unless explicitly calibrated against labeled data.
-
-⸻
-
-Reproducing manuscript results
-
-The manuscript reports results as averages over repeated runs with fixed random seeds. The reference runner exposes the corresponding experimental configurations as:
-
+```bash
 python run_repro.py run --dataset ert        --out results/ert
 python run_repro.py run --dataset synthetic  --out results/synthetic
 python run_repro.py run --dataset iris       --out results/iris
+```
 
-Each command reproduces the tables reported for the corresponding dataset using the same protocol described in the paper.
+If you have the (possibly restricted) ERT field dataset, place it as described in the paper/repository notes and run the `ert` target.
 
-If the Electrical Resistivity Tomography (ERT) field dataset is available, it can be placed according to the repository instructions and evaluated using the ert configuration.
+## Data availability
 
-⸻
+- A redistributable synthetic dataset and a small public demo dataset are included.
+- If the ERT field dataset cannot be redistributed, the repository still provides the full protocol, format specification, and a surrogate generator to validate the workflow structure.
 
-Data availability
-	•	A fully redistributable synthetic dataset is included.
-	•	A small public demonstration dataset is included for validation and inspection.
+## Citation
 
-If the ERT field dataset cannot be publicly redistributed, the repository still provides:
-	•	the complete experimental protocol,
-	•	the full input data specification,
-	•	a surrogate data generator that reproduces the spatial structure required to validate the workflow.
+If you use this code, please cite the associated manuscript.
 
-This ensures that the reproducibility pipeline can be independently verified without access to restricted field data.
+## License
 
-⸻
-
-Citation
-
-If this code or workflow is used in academic work, please cite the associated manuscript.
-
-⸻
-
-License
-
-This repository is released under the MIT License.
-See the LICENSE file for details.
-
+MIT
