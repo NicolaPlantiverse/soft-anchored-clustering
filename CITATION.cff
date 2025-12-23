@@ -5,7 +5,6 @@ authors:
     given-names: Leonardo
   - family-names: Nescatelli
     given-names: Nicola
-version: 0.1.0
-date-released: 2025-01-01
+version: unreleased
 repository-code: https://github.com/NicolaPlantiverse/soft-anchored-clustering
 license: MIT
